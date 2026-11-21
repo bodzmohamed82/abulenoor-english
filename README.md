@@ -5,9 +5,6 @@ Real, deployable website: landing page + student login + student dashboard
 dashboard (publish assignments, view submissions, enter grades, see accounts).
 
 ## Modes
-- **Demo mode** (default): no backend configured. Runs entirely in the browser
-  with synthetic sample data and a red DEMO banner. Logins:
-  `student01 / demo123` and `teacher / teacher123`.
 - **Live mode**: connected to a free Supabase project (auth, database, file
   storage). Fill `SUPABASE_URL` and `SUPABASE_ANON_KEY` in `assets/js/config.js`.
 

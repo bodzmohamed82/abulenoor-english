@@ -1,6 +1,6 @@
 /* Site configuration.
  * PRODUCTION: fill SUPABASE_URL and SUPABASE_ANON_KEY from the Supabase project
- * (Project Settings -> API). While they are empty the site runs in DEMO MODE
+ * (Project Settings -> API).
  * with synthetic data stored in the browser (clearly bannered, not live). */
 window.APP_CONFIG = {
   SITE_NAME: "Dr. Osama Abulenoor",
