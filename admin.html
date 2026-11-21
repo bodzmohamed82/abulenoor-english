@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teacher Dashboard — Dr. Osama Abulenoor</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="demo-banner hidden" id="demoBanner">DEMO PREVIEW — sample data only, not the live platform</div>
+<header class="site-header"><div class="container">
+  <a class="brand" href="index.html"><span class="mark">OA</span>
+    <span><span class="name">Dr. Osama Abulenoor</span><br><span class="sub">IGCSE English</span></span></a>
+  <nav class="nav"><span class="pill">Admin</span><a href="#" id="logout">Log out</a></nav>
+</div></header>
+
+<main class="dash"><div class="container">
+  <div class="dash-head"><h2>Teacher Dashboard</h2></div>
+  <div class="tabs">
+    <button class="active" data-tab="assignments">Assignments</button>
+    <button data-tab="submissions">Submissions</button>
+    <button data-tab="grades">Grades</button>
+    <button data-tab="students">Students</button>
+  </div>
+
+  <section id="tab-assignments">
+    <div class="card" style="margin-bottom:1.4rem">
+      <h3 style="margin-bottom:.9rem">New assignment</h3>
+      <form id="newAssign">
+        <div class="field"><label>Title</label><input name="title" required></div>
+        <div class="field"><label>Instructions</label><textarea name="description" rows="3"></textarea></div>
+        <div class="field"><label>Due date</label><input name="due" type="date"></div>
+        <div class="field"><label>Attachment (brief / worksheet)</label><input name="file" type="file"></div>
+        <button class="btn btn-gold" type="submit">Publish assignment</button>
+        <span class="form-msg ok" id="assignMsg"></span>
+      </form>
+    </div>
+    <div class="list" id="adminAssignList"></div>
+  </section>
+
+  <section id="tab-submissions" class="hidden">
+    <div class="field" style="max-width:420px"><label>Assignment</label><select id="subFilter"></select></div>
+    <div style="overflow-x:auto"><table class="grades" id="subTable">
+      <thead><tr><th>Student</th><th>Submitted</th><th>File</th><th>Note</th></tr></thead><tbody></tbody>
+    </table></div>
+    <div class="empty hidden" id="subEmpty">No submissions for this assignment yet.</div>
+  </section>
+
+  <section id="tab-grades" class="hidden">
+    <div class="card" style="margin-bottom:1.4rem">
+      <h3 style="margin-bottom:.9rem">Enter a quiz grade</h3>
+      <form id="newGrade" style="display:grid;grid-template-columns:2fr 2fr 1fr 1fr auto;gap:.8rem;align-items:end;flex-wrap:wrap">
+        <div class="field" style="margin:0"><label>Student</label><select name="student" required></select></div>
+        <div class="field" style="margin:0"><label>Quiz name</label><input name="quiz" required placeholder="e.g. Tenses Quiz"></div>
+        <div class="field" style="margin:0"><label>Score</label><input name="score" type="number" min="0" step="0.5" required></div>
+        <div class="field" style="margin:0"><label>Out of</label><input name="max" type="number" min="1" step="0.5" value="10" required></div>
+        <button class="btn btn-gold" type="submit">Save</button>
+      </form>
+      <span class="form-msg ok" id="gradeMsg"></span>
+    </div>
+    <div style="overflow-x:auto"><table class="grades" id="allGradeTable">
+      <thead><tr><th>Student</th><th>Quiz</th><th>Score</th><th>%</th><th>Date</th></tr></thead><tbody></tbody>
+    </table></div>
+    <div class="empty hidden" id="allGradeEmpty">No grades entered yet.</div>
+  </section>
+
+  <section id="tab-students" class="hidden">
+    <p style="color:var(--muted);margin-bottom:1rem">Student accounts are created with the setup script (see README) so passwords are never handled in the browser. The list below shows current accounts.</p>
+    <div style="overflow-x:auto"><table class="grades" id="studentTable">
+      <thead><tr><th>Username</th><th>Full name</th></tr></thead><tbody></tbody>
+    </table></div>
+    <div class="empty hidden" id="studentEmpty">No student accounts yet.</div>
+  </section>
+</div></main>
+
+<script src="assets/js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="assets/js/backend.js"></script>
+<script>
+const B = window.backend;
+var __b=document.getElementById('demoBanner');if(B.mode==='demo'){__b.classList.remove('hidden');}else if(window.APP_CONFIG.TEST_MODE){__b.textContent='TEST DEPLOYMENT \u2014 trial platform with sample accounts, not the official site';__b.classList.remove('hidden');}
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—';
+let assignments = [], students = [];
+
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('active', x === b));
+  ['assignments','submissions','grades','students'].forEach(t =>
+    document.getElementById('tab-' + t).classList.toggle('hidden', b.dataset.tab !== t));
+}));
+document.getElementById('logout').addEventListener('click', async (e) => { e.preventDefault(); await B.signOut(); location.href = 'login.html'; });
+
+async function refreshAssignments() {
+  assignments = await B.listAssignments();
+  const counts = await Promise.all(assignments.map(a => B.listSubmissions(a.id).then(s => s.length)));
+  document.getElementById('adminAssignList').innerHTML = assignments.length ? assignments.map((a, i) =>
+    `<div class="row-card"><div><div class="t">${esc(a.title)}</div>
+     <div class="meta">${a.due_date ? 'Due ' + fmtDate(a.due_date) : 'No due date'}</div></div>
+     <span class="pill">${counts[i]} / ${students.length} submitted</span></div>`).join('')
+    : '<div class="empty">No assignments published yet.</div>';
+  document.getElementById('subFilter').innerHTML = assignments.map(a => `<option value="${a.id}">${esc(a.title)}</option>`).join('');
+  renderSubmissions();
+}
+async function renderSubmissions() {
+  const aid = Number(document.getElementById('subFilter').value);
+  const subs = aid ? await B.listSubmissions(aid) : [];
+  const a = assignments.find(x => x.id === aid);
+  const tb = document.querySelector('#subTable tbody');
+  document.getElementById('subEmpty').classList.toggle('hidden', subs.length > 0);
+  document.getElementById('subTable').classList.toggle('hidden', subs.length === 0);
+  tb.innerHTML = subs.map(s => {
+    const late = a && a.due_date && new Date(s.submitted_at) > new Date(a.due_date + 'T23:59:59');
+    return `<tr${late ? ' style="background:#fdf0ef"' : ''}>
+      <td>${esc(s.student_name)}</td><td>${new Date(s.submitted_at).toLocaleString('en-GB')}${late ? ' <span class="tag late">Late</span>' : ''}</td>
+      <td>${s.file_url ? `<a href="${esc(s.file_url)}" target="_blank" rel="noopener">Download</a>` : esc(s.file_name || '—')}</td>
+      <td>${esc(s.note || '—')}</td></tr>`;
+  }).join('');
+}
+document.getElementById('subFilter').addEventListener('change', renderSubmissions);
+
+async function refreshGrades() {
+  const grades = await B.allGrades();
+  const tb = document.querySelector('#allGradeTable tbody');
+  document.getElementById('allGradeEmpty').classList.toggle('hidden', grades.length > 0);
+  document.getElementById('allGradeTable').classList.toggle('hidden', grades.length === 0);
+  tb.innerHTML = grades.map(g => `<tr><td>${esc(g.student_name)}</td><td>${esc(g.quiz_name)}</td><td>${g.score} / ${g.max_score}</td><td>${Math.round(g.score / g.max_score * 100)}%</td><td>${fmtDate(g.graded_at)}</td></tr>`).join('');
+}
+async function refreshStudents() {
+  students = await B.listStudents();
+  const tb = document.querySelector('#studentTable tbody');
+  document.getElementById('studentEmpty').classList.toggle('hidden', students.length > 0);
+  document.getElementById('studentTable').classList.toggle('hidden', students.length === 0);
+  tb.innerHTML = students.map(s => `<tr><td>${esc(s.username)}</td><td>${esc(s.name)}</td></tr>`).join('');
+  document.querySelector('#newGrade [name=student]').innerHTML = students.map(s => `<option value="${s.id}">${esc(s.name)} (${esc(s.username)})</option>`).join('');
+}
+
+document.getElementById('newAssign').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target, m = document.getElementById('assignMsg');
+  try {
+    await B.createAssignment(f.title.value, f.description.value, f.due.value, f.file.files[0] || null);
+    f.reset(); m.textContent = 'Published.'; setTimeout(() => m.textContent = '', 3000);
+    refreshAssignments();
+  } catch (err) { alert(err.message); }
+});
+document.getElementById('newGrade').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target, m = document.getElementById('gradeMsg');
+  try {
+    await B.saveGrade(f.student.value, f.quiz.value, f.score.value, f.max.value);
+    f.quiz.value = ''; f.score.value = ''; m.textContent = 'Saved.'; setTimeout(() => m.textContent = '', 3000);
+    refreshGrades();
+  } catch (err) { alert(err.message); }
+});
+
+(async () => {
+  const me = await B.getSession();
+  if (!me) { location.href = 'login.html'; return; }
+  if (me.role !== 'teacher') { location.href = 'student.html'; return; }
+  await refreshStudents();
+  await Promise.all([refreshAssignments(), refreshGrades()]);
+})();
+</script>
+</body>
+</html>

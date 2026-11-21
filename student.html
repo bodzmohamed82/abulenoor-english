@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Dashboard — Dr. Osama Abulenoor</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="demo-banner hidden" id="demoBanner">DEMO PREVIEW — sample data only, not the live platform</div>
+<header class="site-header"><div class="container">
+  <a class="brand" href="index.html"><span class="mark">OA</span>
+    <span><span class="name">Dr. Osama Abulenoor</span><br><span class="sub">IGCSE English</span></span></a>
+  <nav class="nav"><span class="pill" id="whoPill">Student</span><a href="#" id="logout">Log out</a></nav>
+</div></header>
+
+<main class="dash"><div class="container">
+  <div class="dash-head"><h2 id="greet">Welcome</h2></div>
+  <div class="tabs">
+    <button class="active" data-tab="assignments">Assignments</button>
+    <button data-tab="grades">My Grades</button>
+  </div>
+
+  <section id="tab-assignments"><div class="list" id="assignList"></div></section>
+
+  <section id="tab-grades" class="hidden">
+    <div id="gradeSummary" style="margin-bottom:1rem"></div>
+    <div style="overflow-x:auto"><table class="grades" id="gradeTable">
+      <thead><tr><th>Quiz</th><th>Score</th><th>Out of</th><th>%</th><th>Date</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <div class="empty hidden" id="gradesEmpty">No grades posted yet.</div>
+  </section>
+</div></main>
+
+<script src="assets/js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="assets/js/backend.js"></script>
+<script>
+const B = window.backend;
+var __b=document.getElementById('demoBanner');if(B.mode==='demo'){__b.classList.remove('hidden');}else if(window.APP_CONFIG.TEST_MODE){__b.textContent='TEST DEPLOYMENT \u2014 trial platform with sample accounts, not the official site';__b.classList.remove('hidden');}
+let me = null, assignments = [], submissions = [];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtDate = (d) => d ? new Date(d + (String(d).length === 10 ? 'T00:00:00' : '')).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—';
+
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('active', x === b));
+  document.getElementById('tab-assignments').classList.toggle('hidden', b.dataset.tab !== 'assignments');
+  document.getElementById('tab-grades').classList.toggle('hidden', b.dataset.tab !== 'grades');
+}));
+document.getElementById('logout').addEventListener('click', async (e) => { e.preventDefault(); await B.signOut(); location.href = 'login.html'; });
+
+function statusFor(a) {
+  const sub = submissions.find(s => s.assignment_id === a.id);
+  if (sub) return { tag: '<span class="tag ok">Submitted</span>', sub };
+  if (a.due_date && new Date(a.due_date) < new Date(new Date().toDateString())) return { tag: '<span class="tag late">Late</span>' };
+  return { tag: '<span class="tag pending">Pending</span>' };
+}
+
+async function renderAssignments() {
+  const el = document.getElementById('assignList');
+  if (!assignments.length) { el.innerHTML = '<div class="empty">No assignments yet.</div>'; return; }
+  el.innerHTML = assignments.map(a => {
+    const st = statusFor(a);
+    const fileBtn = a.file_url ? `<a class="btn btn-outline" style="padding:.5rem 1.1rem;font-size:.85rem" href="${esc(a.file_url)}" target="_blank" rel="noopener">Download brief</a>` : '';
+    const subArea = st.sub
+      ? `<div class="meta">Submitted ${fmtDate(st.sub.submitted_at)}${st.sub.file_name || st.sub.file_path ? ' — ' + esc(st.sub.file_name || st.sub.file_path.split('/').pop()) : ''}${st.sub.note ? '<br>Note: ' + esc(st.sub.note) : ''}</div>`
+      : `<form class="file-input" data-aid="${a.id}">
+           <input type="file" name="work" required>
+           <input type="text" name="note" placeholder="Note for the teacher (optional)" style="flex:1;min-width:180px;padding:.5rem .7rem;border:1.5px solid var(--line);border-radius:10px">
+           <button class="btn btn-gold" style="padding:.55rem 1.2rem;font-size:.85rem" type="submit">Upload submission</button>
+         </form>`;
+    return `<div class="row-card" style="display:block">
+      <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:center">
+        <div><div class="t">${esc(a.title)}</div>
+        <div class="meta">${a.due_date ? 'Due: ' + fmtDate(a.due_date) : 'No due date'}</div></div>
+        <div style="display:flex;gap:.6rem;align-items:center">${st.tag}${fileBtn}</div>
+      </div>
+      ${a.description ? `<p style="color:var(--muted);font-size:.92rem;margin:.6rem 0">${esc(a.description)}</p>` : ''}
+      <div style="margin-top:.7rem">${subArea}</div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('form[data-aid]').forEach(f => f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = f.querySelector('button'); btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    try {
+      await B.submitWork(Number(f.dataset.aid), f.work.files[0] || null, f.note.value);
+      submissions = await B.mySubmissions(); renderAssignments();
+    } catch (err) { alert(err.message); btn.disabled = false; btn.textContent = 'Upload submission'; }
+  }));
+}
+
+async function renderGrades() {
+  const grades = await B.myGrades();
+  const tb = document.querySelector('#gradeTable tbody');
+  document.getElementById('gradesEmpty').classList.toggle('hidden', grades.length > 0);
+  document.getElementById('gradeTable').classList.toggle('hidden', grades.length === 0);
+  tb.innerHTML = grades.map(g => `<tr><td>${esc(g.quiz_name)}</td><td>${g.score}</td><td>${g.max_score}</td><td>${Math.round(g.score / g.max_score * 100)}%</td><td>${fmtDate(g.graded_at)}</td></tr>`).join('');
+  if (grades.length) {
+    const avg = Math.round(grades.reduce((t, g) => t + g.score / g.max_score, 0) / grades.length * 100);
+    document.getElementById('gradeSummary').innerHTML = `<span class="pill">Average across ${grades.length} quiz(zes): ${avg}%</span>`;
+  }
+}
+
+(async () => {
+  me = await B.getSession();
+  if (!me) { location.href = 'login.html'; return; }
+  if (me.role === 'teacher') { location.href = 'admin.html'; return; }
+  document.getElementById('greet').textContent = 'Welcome, ' + (me.name || me.username);
+  document.getElementById('whoPill').textContent = me.username || 'Student';
+  [assignments, submissions] = await Promise.all([B.listAssignments(), B.mySubmissions()]);
+  renderAssignments(); renderGrades();
+})();
+</script>
+</body>
+</html>

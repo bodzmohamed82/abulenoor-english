@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — Dr. Osama Abulenoor</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="demo-banner hidden" id="demoBanner">DEMO PREVIEW — try student01 / demo123 or teacher / teacher123</div>
+<header class="site-header"><div class="container">
+  <a class="brand" href="index.html"><span class="mark">OA</span>
+    <span><span class="name">Dr. Osama Abulenoor</span><br><span class="sub">IGCSE English</span></span></a>
+  <nav class="nav"><a href="index.html">← Back to site</a></nav>
+</div></header>
+
+<main class="auth-wrap"><div class="auth-card">
+  <h2>Sign in</h2>
+  <p class="hint">Students use the username and password given in class.</p>
+  <form id="loginForm">
+    <div class="field"><label for="u">Username</label><input id="u" autocomplete="username" required></div>
+    <div class="field"><label for="p">Password</label><input id="p" type="password" autocomplete="current-password" required></div>
+    <div class="form-msg" id="msg"></div>
+    <button class="btn btn-gold" style="width:100%;justify-content:center" id="btn" type="submit">Sign in</button>
+  </form>
+</div></main>
+
+<script src="assets/js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="assets/js/backend.js"></script>
+<script>
+var __b=document.getElementById('demoBanner');if(window.backend.mode==='demo'){__b.classList.remove('hidden');}else if(window.APP_CONFIG.TEST_MODE){__b.textContent='TEST DEPLOYMENT \u2014 trial platform with sample accounts, not the official site';__b.classList.remove('hidden');}
+const form = document.getElementById('loginForm'), msg = document.getElementById('msg'), btn = document.getElementById('btn');
+window.backend.getSession().then(s => { if (s) location.href = s.role === 'teacher' ? 'admin.html' : 'student.html'; });
+form.addEventListener('submit', async (e) => {
+  e.preventDefault(); msg.className = 'form-msg'; msg.textContent = '';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Signing in…';
+  try {
+    const s = await window.backend.signIn(document.getElementById('u').value, document.getElementById('p').value);
+    location.href = s.role === 'teacher' ? 'admin.html' : 'student.html';
+  } catch (err) {
+    msg.className = 'form-msg error'; msg.textContent = err.message;
+    btn.disabled = false; btn.textContent = 'Sign in';
+  }
+});
+</script>
+</body>
+</html>
