@@ -3,7 +3,8 @@
 
 -- Teacher registry (the one admin account)
 create table if not exists public.teachers (
-  id uuid primary key references auth.users(id) on delete cascade
+  id uuid primary key references auth.users(id) on delete cascade,
+  full_name text not null default ''
 );
 
 create or replace function public.is_teacher() returns boolean

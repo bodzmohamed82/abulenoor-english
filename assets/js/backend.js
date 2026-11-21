@@ -33,8 +33,8 @@
     async function profile() {
       const { data: { user } } = await sb.auth.getUser();
       if (!user) return null;
-      const { data: t } = await sb.from("teachers").select("id").eq("id", user.id).maybeSingle();
-      if (t) return { id: user.id, role: "teacher", name: "Dr. Osama" };
+      const { data: t } = await sb.from("teachers").select("id, full_name").eq("id", user.id).maybeSingle();
+      if (t) return { id: user.id, role: "teacher", name: t.full_name || "Dr. Osama" };
       const { data: st } = await sb.from("students").select("*").eq("id", user.id).single();
       return st ? { id: user.id, role: "student", name: st.full_name, username: st.username } : null;
     }
